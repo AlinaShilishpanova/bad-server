@@ -1,7 +1,7 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
 
-export const phoneRegExp = /^(\+\d+)?(?:\s|-?|\(?\d+\)?)+$/
+export const phoneRegExp = /^\+?\d[\d\s()-]{5,20}$/
 
 export enum PaymentType {
     Card = 'card',
