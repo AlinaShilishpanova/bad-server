@@ -5,6 +5,7 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import sanitizeHtml from 'sanitize-html'
 
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -309,7 +310,7 @@ export const createOrder = async (
             payment,
             phone,
             email,
-            comment,
+            comment: comment ? sanitizeHtml(comment, { allowedTags: [], allowedAttributes: {} }) : '',
             customer: userId,
             deliveryAddress: address,
         })
@@ -357,7 +358,6 @@ export const updateOrder = async (
     }
 }
 
-// Delete an order
 export const deleteOrder = async (
     req: Request,
     res: Response,

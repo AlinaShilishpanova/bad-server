@@ -7,7 +7,6 @@ import User, { IUser } from '../models/user'
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// Get GET /customers
 export const getCustomers = async (
     req: Request,
     res: Response,
@@ -16,7 +15,7 @@ export const getCustomers = async (
     try {
         const {
             page = 1,
-            limit = 10,
+            limit: rawLimit = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             registrationDateFrom,
@@ -29,6 +28,8 @@ export const getCustomers = async (
             orderCountTo,
             search,
         } = req.query
+
+        const limit = Math.min(Number(rawLimit), 10) || 10
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
@@ -96,9 +97,7 @@ export const getCustomers = async (
             const safeSearch = escapeRegExp(search)
             const searchRegex = new RegExp(safeSearch, 'i')
             const orders = await Order.find(
-                {
-                    $or: [{ deliveryAddress: searchRegex }],
-                },
+                { $or: [{ deliveryAddress: searchRegex }] },
                 '_id'
             )
 
@@ -118,28 +117,24 @@ export const getCustomers = async (
 
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (Number(page) - 1) * limit,
+            limit,
         }
 
         const users = await User.find(filters, null, options).populate([
             'orders',
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'products',
-                },
+                populate: { path: 'products' },
             },
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'customer',
-                },
+                populate: { path: 'customer' },
             },
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / limit)
 
         res.status(200).json({
             customers: users,
@@ -147,7 +142,7 @@ export const getCustomers = async (
                 totalUsers,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -155,7 +150,6 @@ export const getCustomers = async (
     }
 }
 
-// Get /customers/:id
 export const getCustomerById = async (
     req: Request,
     res: Response,
@@ -172,7 +166,6 @@ export const getCustomerById = async (
     }
 }
 
-// Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
     res: Response,
@@ -182,9 +175,7 @@ export const updateCustomer = async (
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             req.body,
-            {
-                new: true,
-            }
+            { new: true }
         )
             .orFail(
                 () =>
@@ -199,7 +190,6 @@ export const updateCustomer = async (
     }
 }
 
-// Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,
     res: Response,

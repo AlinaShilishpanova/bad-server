@@ -16,7 +16,6 @@ import routes from './routes'
 const { PORT = 3000, ORIGIN_ALLOW = 'http://localhost' } = process.env
 const app = express()
 
-// Доверяем первому прокси (nginx) — нужно для корректной работы rate-limit за прокси
 app.set('trust proxy', 1)
 
 app.use(helmet())
@@ -32,7 +31,7 @@ app.use(
 app.use(
     rateLimit({
         windowMs: 60 * 1000,
-        limit: 100,
+        limit: 50,
         standardHeaders: true,
         legacyHeaders: false,
     })
