@@ -8,6 +8,7 @@ import helmet from 'helmet'
 import mongoose from 'mongoose'
 import path from 'path'
 import { DB_ADDRESS } from './config'
+import { csrfProtection, csrfTokenGenerator } from './middlewares/csrf'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
@@ -38,6 +39,9 @@ app.use(serveStatic(path.join(__dirname, 'public')))
 
 app.use(urlencoded({ extended: true, limit: '1mb' }))
 app.use(json({ limit: '1mb' }))
+
+app.get('/csrf-token', csrfTokenGenerator)
+app.use(csrfProtection)
 
 app.use(routes)
 app.use(errors())
