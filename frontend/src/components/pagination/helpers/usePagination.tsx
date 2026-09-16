@@ -1,4 +1,3 @@
-import { AsyncThunk } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from '@store/hooks'
 import { RootState } from '@store/store'
 import { useCallback, useEffect, useState } from 'react'
@@ -23,8 +22,11 @@ type AsyncActionResponse = {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyAsyncAction = (arg: Record<string, unknown>) => any
+
 const usePagination = <T, U>(
-    asyncAction: AsyncThunk<T, Record<string, unknown>, unknown>,
+    asyncAction: AnyAsyncAction,
     selector: (state: RootState) => U[],
     defaultLimit: number
 ): PaginationResult<T, U> => {
