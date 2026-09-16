@@ -8,13 +8,16 @@ import helmet from 'helmet'
 import mongoose from 'mongoose'
 import path from 'path'
 import { DB_ADDRESS } from './config'
-import { csrfProtection, csrfTokenGenerator } from './middlewares/csrf'
+import { csrfProtection } from './middlewares/csrf'
 import errorHandler from './middlewares/error-handler'
 import serveStatic from './middlewares/serverStatic'
 import routes from './routes'
 
 const { PORT = 3000, ORIGIN_ALLOW = 'http://localhost' } = process.env
 const app = express()
+
+// Доверяем первому прокси (nginx) — нужно для корректной работы rate-limit за прокси
+app.set('trust proxy', 1)
 
 app.use(helmet())
 app.use(cookieParser())
@@ -40,7 +43,7 @@ app.use(serveStatic(path.join(__dirname, 'public')))
 app.use(urlencoded({ extended: true, limit: '1mb' }))
 app.use(json({ limit: '1mb' }))
 
-app.get('/csrf-token', csrfTokenGenerator)
+// CSRF protection на все небезопасные методы (GET-эндпоинты пропускаются автоматически)
 app.use(csrfProtection)
 
 app.use(routes)

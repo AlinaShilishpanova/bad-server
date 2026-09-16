@@ -59,7 +59,7 @@ class Api {
 
     private async ensureCsrfToken(): Promise<string> {
         if (this.csrfToken) return this.csrfToken
-        const res = await fetch(`${this.baseUrl}/csrf-token`, {
+        const res = await fetch(`${this.baseUrl}/auth/csrf-token`, {
             credentials: 'include',
         })
         const data = (await res.json()) as { csrfToken: string }
