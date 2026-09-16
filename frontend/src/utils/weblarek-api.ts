@@ -30,9 +30,13 @@ export type ApiListResponse<Type> = {
     items: Type[]
 }
 
+const CSRF_SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS']
+const CSRF_HEADER = 'X-CSRF-Token'
+
 class Api {
     private readonly baseUrl: string
     protected options: RequestInit
+    private csrfToken: string | null = null
 
     constructor(baseUrl: string, options: RequestInit = {}) {
         this.baseUrl = baseUrl
@@ -53,11 +57,34 @@ class Api {
                   )
     }
 
+    private async ensureCsrfToken(): Promise<string> {
+        if (this.csrfToken) return this.csrfToken
+        const res = await fetch(`${this.baseUrl}/auth/csrf-token`, {
+            credentials: 'include',
+        })
+        const data = (await res.json()) as { csrfToken: string }
+        this.csrfToken = data.csrfToken
+        return this.csrfToken
+    }
+
     protected async request<T>(endpoint: string, options: RequestInit) {
         try {
+            const method = (options.method || 'GET').toUpperCase()
+            const headers: Record<string, string> = {
+                ...((this.options.headers as Record<string, string>) ?? {}),
+                ...((options.headers as Record<string, string>) ?? {}),
+            }
+
+            if (!CSRF_SAFE_METHODS.includes(method)) {
+                const token = await this.ensureCsrfToken()
+                headers[CSRF_HEADER] = token
+            }
+
             const res = await fetch(`${this.baseUrl}${endpoint}`, {
                 ...this.options,
                 ...options,
+                headers,
+                credentials: 'include',
             })
             return await this.handleResponse<T>(res)
         } catch (error) {
@@ -68,7 +95,6 @@ class Api {
     private refreshToken = () => {
         return this.request<UserResponseToken>('/auth/token', {
             method: 'GET',
-            credentials: 'include',
         })
     }
 
@@ -131,9 +157,7 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
         ).toString()
         return this.request<IProductPaginationResult>(
             `/product?${queryParams}`,
-            {
-                method: 'GET',
-            }
+            { method: 'GET' }
         ).then((data) => ({
             ...data,
             items: data.items.map((item) => ({
@@ -233,7 +257,6 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             headers: {
                 'Content-Type': 'application/json',
             },
-            credentials: 'include',
         })
     }
 
@@ -244,7 +267,6 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
             headers: {
                 'Content-Type': 'application/json',
             },
-            credentials: 'include',
         })
     }
 
@@ -294,12 +316,10 @@ export class WebLarekAPI extends Api implements IWebLarekAPI {
     logoutUser = () => {
         return this.request<ServerResponse<unknown>>('/auth/logout', {
             method: 'GET',
-            credentials: 'include',
         })
     }
 
     createProduct = (data: Omit<IProduct, '_id'>) => {
-        console.log(data)
         return this.requestWithRefresh<IProduct>('/product', {
             method: 'POST',
             body: JSON.stringify(data),
