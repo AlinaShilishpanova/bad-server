@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError, Types } from 'mongoose'
+import sanitizeHtml from 'sanitize-html'
 import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
-import sanitizeHtml from 'sanitize-html'
 
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -19,7 +19,7 @@ export const getOrders = async (
     try {
         const {
             page = 1,
-            limit = 10,
+            limit: rawLimit = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             status,
@@ -30,9 +30,14 @@ export const getOrders = async (
             search,
         } = req.query
 
+        const limit = Math.min(Number(rawLimit), 10) || 10
+
         const filters: FilterQuery<Partial<IOrder>> = {}
 
-        if (status && typeof status === 'string') {
+        if (status) {
+            if (typeof status !== 'string') {
+                throw new BadRequestError('Невалидное значение статуса')
+            }
             filters.status = status
         }
 
@@ -114,8 +119,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (Number(page) - 1) * limit },
+            { $limit: limit },
             {
                 $group: {
                     _id: '$_id',
@@ -131,7 +136,7 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limit)
 
         res.status(200).json({
             orders,
@@ -139,7 +144,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -154,22 +159,19 @@ export const getOrdersCurrentUser = async (
 ) => {
     try {
         const userId = res.locals.user._id
-        const { search, page = 1, limit = 5 } = req.query
+        const { search, page = 1, limit: rawLimit = 5 } = req.query
+        const limit = Math.min(Number(rawLimit), 10) || 5
         const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (Number(page) - 1) * limit,
+            limit,
         }
 
         const user = await User.findById(userId)
             .populate({
                 path: 'orders',
                 populate: [
-                    {
-                        path: 'products',
-                    },
-                    {
-                        path: 'customer',
-                    },
+                    { path: 'products' },
+                    { path: 'customer' },
                 ],
             })
             .orFail(
@@ -201,7 +203,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limit)
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -211,7 +213,7 @@ export const getOrdersCurrentUser = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -219,7 +221,6 @@ export const getOrdersCurrentUser = async (
     }
 }
 
-// Get order by ID
 export const getOrderByNumber = async (
     req: Request,
     res: Response,
@@ -276,7 +277,6 @@ export const getOrderCurrentUserByNumber = async (
     }
 }
 
-// POST /product
 export const createOrder = async (
     req: Request,
     res: Response,
@@ -310,7 +310,9 @@ export const createOrder = async (
             payment,
             phone,
             email,
-            comment: comment ? sanitizeHtml(comment, { allowedTags: [], allowedAttributes: {} }) : '',
+            comment: comment
+                ? sanitizeHtml(comment, { allowedTags: [], allowedAttributes: {} })
+                : '',
             customer: userId,
             deliveryAddress: address,
         })
@@ -326,7 +328,6 @@ export const createOrder = async (
     }
 }
 
-// Update an order
 export const updateOrder = async (
     req: Request,
     res: Response,
