@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { NextFunction, Request, Response } from 'express'
 
-export const CSRF_COOKIE_NAME = 'csrfToken'
+export const CSRF_COOKIE_NAME = '_csrf'
 export const CSRF_HEADER_NAME = 'x-csrf-token'
 
 const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS']
